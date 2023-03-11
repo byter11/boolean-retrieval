@@ -1,0 +1,13 @@
+[package]
+name = "boolean_retrieval"
+version = "0.1.0"
+rust-version = "1.65"
+edition = "2021"
+publish = false
+
+
+[dependencies]
+eframe = { version = "0.21.0", features = ["__screenshot"] }
+egui = "0.21.0"
+rfd = "0.11"
+serde = "1.0.154"
