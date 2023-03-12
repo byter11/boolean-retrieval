@@ -126,7 +126,7 @@ impl BooleanModel {
                 doc_id,
                 DocumentDetails {
                     name: String::from(file.file_name().unwrap().to_str().unwrap()),
-                    summary: String::from(&filtered_text[0..50]),
+                    summary: String::from(filtered_text.get(0..50).unwrap_or_default()),
                     text,
                 },
             );
