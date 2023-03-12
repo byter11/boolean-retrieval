@@ -10,7 +10,9 @@ publish = false
 opt-level = 2
 
 [dependencies]
-eframe = { version = "0.21.0" }
-egui = "0.21.0"
+eframe = { version = "0.21.0", features = ["persistence", "serde" ] }
+egui = { version = "0.21.0", features = ["persistence", "serde" ] }
 rfd = "0.11"
+rust-stemmers = "1.2.0"
 serde = "1.0.154"
+serde_json = "1.0.94"
