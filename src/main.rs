@@ -59,12 +59,25 @@ impl eframe::App for MyApp {
                 });
             }
 
+            // Query Input
             ui.text_edit_singleline(&mut self.query);
 
+
+            // Search button
             if ui.button("Search").clicked() {
                 self.result = self.model.query_boolean(&self.query);
             }
 
+            // Enter key handler
+            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if self.query.contains("/") {
+                    self.result = self.model.query_positional(&self.query);
+                } else {
+                    self.result = self.model.query_boolean(&self.query);
+                }
+            }
+
+            // Render results with summary on hover
             for doc in &self.result {
                 let link = ui.link(&doc.name).on_hover_text(doc.summary.clone() + "...");
                 if link.clicked() {
@@ -83,6 +96,7 @@ impl eframe::App for MyApp {
             }
         });
 
+        // Document preview panel
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading(&self.title);

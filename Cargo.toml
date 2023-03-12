@@ -6,8 +6,11 @@ edition = "2021"
 publish = false
 
 
+[profile.release]
+opt-level = 2
+
 [dependencies]
-eframe = { version = "0.21.0", features = ["__screenshot"] }
+eframe = { version = "0.21.0" }
 egui = "0.21.0"
 rfd = "0.11"
 serde = "1.0.154"

@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt::{self, Debug};
@@ -35,8 +34,8 @@ impl Serialize for Document {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_struct("Document", 2)?;
-        state.serialize_field("name", &self.name);
-        state.serialize_field("summary", &self.summary);
+        state.serialize_field("name", &self.name).ok();
+        state.serialize_field("summary", &self.summary).ok();
         state.end()
     }
 }
@@ -130,19 +129,14 @@ impl BooleanModel {
                     ans
                 }
                 other => {
-                    let docs = self.get_docs(&other).unwrap_or(vec![]);
-                    println!("term: {:?}  docs: [{:?}]\n", token, docs.len());
-                    // if docs.is_none() {
-                    //     println!("No docs found for term {:?}", other);
-                    //     return ans;
-                    // }
+                    let docs = self.get_docs(other.to_lowercase().as_str()).unwrap_or(vec![]);
 
                     match op {
                         Op::AND => {
-                            return BooleanModel::intersect(ans, docs);
+                            return BooleanModel::intersect(&ans, &docs);
                         }
                         Op::OR => {
-                            return BooleanModel::union(ans, docs);
+                            return BooleanModel::union(&ans, &docs);
                         }
                         Op::NONE => {
                             if ans.is_empty() {
@@ -158,13 +152,41 @@ impl BooleanModel {
         return docs.into_iter().map(|f| f.clone()).collect();
     }
 
+    pub fn query_positional(self: &Self, query: &str) -> Vec<Document> {
+        let mut docs_list = vec![];
+        let mut k = 1;
+
+        for token in BooleanModel::tokenize(&String::from(query)) {
+            match token {
+                pos if pos.starts_with("/") => match pos[1..].parse() {
+                    Ok(tk) => k = tk,
+                    Err(_) => k = 1,
+                },
+                term => {
+                    docs_list.push(self.get_docs(term.to_lowercase().as_str()).unwrap_or(vec![]));
+                }
+            }
+        }
+
+        let docs = docs_list.into_iter().enumerate().fold(vec![], |ans, (i, cur)| {
+            if i == 0 {
+                return cur;
+            }
+            BooleanModel::positional_intersect(&ans, &cur, k)
+        });
+
+        dbg!(query, k, &docs);
+
+        return docs.into_iter().map(|f| f.clone()).collect();
+    }
+
     fn get_docs(self: &Self, term: &str) -> Option<Vec<&Document>> {
         self.posting_list
             .get(term)
             .and_then(|list| Some(list.iter().collect()))
     }
 
-    fn union<'a>(a: Vec<&'a Document>, b: Vec<&'a Document>) -> Vec<&'a Document> {
+    fn union<'a>(a: &Vec<&'a Document>, b: &Vec<&'a Document>) -> Vec<&'a Document> {
         let mut result = vec![];
 
         let mut i = 0;
@@ -197,7 +219,7 @@ impl BooleanModel {
         result
     }
 
-    fn intersect<'a>(a: Vec<&'a Document>, b: Vec<&'a Document>) -> Vec<&'a Document> {
+    fn intersect<'a>(a: &Vec<&'a Document>, b: &Vec<&'a Document>) -> Vec<&'a Document> {
         let mut result = vec![];
 
         let mut i = 0;
@@ -218,6 +240,49 @@ impl BooleanModel {
         result
     }
 
+    fn positional_intersect<'a>(
+        a: &Vec<&'a Document>,
+        b: &Vec<&'a Document>,
+        k: u32,
+    ) -> Vec<&'a Document> {
+        let mut answer = vec![];
+
+        let mut i = 0;
+        let mut j = 0;
+
+        while i < a.len() && j < b.len() {
+            if a[i].id == b[j].id {
+                let mut ok = false;
+
+                dbg!(&a[i].positions);
+                for pp1 in &a[i].positions {
+                    if ok {
+                        answer.push(b[j]);
+                        break;
+                    }
+
+                    dbg!(&b[j].positions);
+                    for pp2 in &b[j].positions {
+                        if pp1.abs_diff(*pp2) <= k {
+                            ok = true;
+                        } else if pp2 > pp1 {
+                            break;
+                        }
+                    }
+                }
+                i = i + 1;
+                j = j + 1;
+                dbg!(ok);
+            } else if a[i].id < b[j].id {
+                i = i + 1;
+            } else {
+                j = j + 1;
+            }
+        }
+
+        return answer;
+    }
+
     fn insert(&mut self, term: &str, mut document: Document) {
         if self.posting_list.contains_key(term) {
             let idx_result =
@@ -226,7 +291,7 @@ impl BooleanModel {
                 Ok(idx) => {
                     self.posting_list.get_mut(term).unwrap()[idx]
                         .positions
-                        .append(document.positions.borrow_mut());
+                        .append(&mut document.positions);
                 }
                 Err(_) => self.posting_list.get_mut(term).unwrap().push(document),
             }
@@ -236,7 +301,7 @@ impl BooleanModel {
     }
 
     fn tokenize(s: &String) -> impl Iterator<Item = &str> {
-        s.split(&[' ', '/']).filter(|&x| x.len() > 1)
+        s.split(' ').filter(|&x| x.len() > 1)
     }
 
     fn stem(s: &str) -> &str {
