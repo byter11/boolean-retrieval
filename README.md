@@ -1,4 +1,5 @@
-<h1 align="center"> Boolean Retrieval </h1>
+<h1 align="center"> vector-flow </h1>
+<h3 align="center"> Boolean and Vector Space Model based document search engine </h3>
 <p align="center"> CS4051 - Information Retrieval - A1 Programming Assignment </p>
 <div align="center"><img align="center" src="./screenshot.png"/></div>
 <hr/>
